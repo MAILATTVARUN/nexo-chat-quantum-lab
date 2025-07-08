@@ -1,12 +1,13 @@
-
 import { useState, useEffect, useRef } from 'react';
-import { Send, Paperclip, Mic, Image, MoreVertical, Phone, Video } from 'lucide-react';
+import { Send, Paperclip, Mic, Image, MoreVertical, Phone, Video, Smile } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { MessageBubble } from '@/components/MessageBubble';
 import { TypingIndicator } from '@/components/TypingIndicator';
+import { ImageUpload } from '@/components/ImageUpload';
+import { GifPicker } from '@/components/GifPicker';
 import { useToast } from '@/hooks/use-toast';
 
 interface Profile {
@@ -31,7 +32,9 @@ interface Message {
   content: string;
   timestamp: string;
   sender: 'me' | 'other';
-  type: 'text' | 'image' | 'file' | 'voice';
+  type: 'text' | 'image' | 'file' | 'voice' | 'gif';
+  fileUrl?: string;
+  fileName?: string;
 }
 
 interface RealTimeChatProps {
@@ -44,6 +47,8 @@ export const RealTimeChat = ({ contact, conversationId }: RealTimeChatProps) => 
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
+  const [showImageUpload, setShowImageUpload] = useState(false);
+  const [showGifPicker, setShowGifPicker] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
@@ -108,6 +113,111 @@ export const RealTimeChat = ({ contact, conversationId }: RealTimeChatProps) => 
     };
   }, [conversationId]);
 
+  const uploadImage = async (file: File): Promise<string | null> => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user?.id}-${Date.now()}.${fileExt}`;
+      const filePath = `chat-images/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('chat-files')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        console.error('Error uploading image:', uploadError);
+        return null;
+      }
+
+      const { data } = supabase.storage
+        .from('chat-files')
+        .getPublicUrl(filePath);
+
+      return data.publicUrl;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      return null;
+    }
+  };
+
+  const handleImageSelect = async (file: File) => {
+    if (!user || !conversationId) return;
+
+    setLoading(true);
+    try {
+      const imageUrl = await uploadImage(file);
+      
+      if (!imageUrl) {
+        toast({
+          title: "Upload failed",
+          description: "Failed to upload image. Please try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          content: imageUrl,
+          sender_id: user.id,
+          conversation_id: conversationId,
+          message_type: 'image'
+        });
+
+      if (error) {
+        console.error('Error sending image:', error);
+        toast({
+          title: "Failed to send image",
+          description: "Please try again.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error sending image:', error);
+      toast({
+        title: "Failed to send image",
+        description: "An unexpected error occurred.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGifSelect = async (gifUrl: string) => {
+    if (!user || !conversationId) return;
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          content: gifUrl,
+          sender_id: user.id,
+          conversation_id: conversationId,
+          message_type: 'gif'
+        });
+
+      if (error) {
+        console.error('Error sending GIF:', error);
+        toast({
+          title: "Failed to send GIF",
+          description: "Please try again.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error sending GIF:', error);
+      toast({
+        title: "Failed to send GIF",
+        description: "An unexpected error occurred.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !user || !conversationId) return;
 
@@ -161,7 +271,7 @@ export const RealTimeChat = ({ contact, conversationId }: RealTimeChatProps) => 
         minute: '2-digit' 
       }),
       sender: message.sender_id === user?.id ? 'me' : 'other',
-      type: 'text'
+      type: message.message_type as 'text' | 'image' | 'gif' | 'file' | 'voice'
     };
   };
 
@@ -214,11 +324,24 @@ export const RealTimeChat = ({ contact, conversationId }: RealTimeChatProps) => 
       <div className="p-4 border-t border-gray-700 bg-gray-800">
         <div className="flex items-end space-x-3">
           <div className="flex space-x-1">
-            <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
-              <Paperclip className="h-4 w-4" />
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-gray-400 hover:text-white"
+              onClick={() => setShowImageUpload(true)}
+            >
+              <Image className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-gray-400 hover:text-white"
+              onClick={() => setShowGifPicker(true)}
+            >
+              <Smile className="h-4 w-4" />
             </Button>
             <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
-              <Image className="h-4 w-4" />
+              <Paperclip className="h-4 w-4" />
             </Button>
           </div>
           
@@ -247,6 +370,21 @@ export const RealTimeChat = ({ contact, conversationId }: RealTimeChatProps) => 
           </div>
         </div>
       </div>
+
+      {/* Modals */}
+      {showImageUpload && (
+        <ImageUpload
+          onImageSelect={handleImageSelect}
+          onClose={() => setShowImageUpload(false)}
+        />
+      )}
+
+      {showGifPicker && (
+        <GifPicker
+          onGifSelect={handleGifSelect}
+          onClose={() => setShowGifPicker(false)}
+        />
+      )}
     </div>
   );
 };
