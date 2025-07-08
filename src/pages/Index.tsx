@@ -27,7 +27,7 @@ export interface Message {
   content: string;
   timestamp: string;
   sender: 'me' | 'other';
-  type: 'text' | 'image' | 'file' | 'voice' | 'gif';
+  type: 'text' | 'image' | 'file' | 'voice' | 'gif' | 'link';
   fileUrl?: string;
   fileName?: string;
 }

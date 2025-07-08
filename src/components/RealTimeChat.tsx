@@ -1,6 +1,5 @@
-
 import { useState, useEffect, useRef } from 'react';
-import { Send, Paperclip, Mic, Image, MoreVertical, Phone, Video, Smile } from 'lucide-react';
+import { Send, Paperclip, Mic, Image, MoreVertical, Phone, Video, Smile, Link } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -10,6 +9,8 @@ import { MessageBubble } from '@/components/MessageBubble';
 import { TypingIndicator } from '@/components/TypingIndicator';
 import { ImageUpload } from '@/components/ImageUpload';
 import { GifPicker } from '@/components/GifPicker';
+import { VoiceRecorder } from '@/components/VoiceRecorder';
+import { LinkUpload } from '@/components/LinkUpload';
 import { useToast } from '@/hooks/use-toast';
 
 interface Profile {
@@ -34,7 +35,7 @@ interface Message {
   content: string;
   timestamp: string;
   sender: 'me' | 'other';
-  type: 'text' | 'image' | 'file' | 'voice' | 'gif';
+  type: 'text' | 'image' | 'file' | 'voice' | 'gif' | 'link';
   fileUrl?: string;
   fileName?: string;
 }
@@ -51,6 +52,8 @@ export const RealTimeChat = ({ contact, conversationId }: RealTimeChatProps) => 
   const [isTyping, setIsTyping] = useState(false);
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [showGifPicker, setShowGifPicker] = useState(false);
+  const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
+  const [showLinkUpload, setShowLinkUpload] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
@@ -115,6 +118,31 @@ export const RealTimeChat = ({ contact, conversationId }: RealTimeChatProps) => 
     };
   }, [conversationId]);
 
+  const uploadVoiceMessage = async (audioBlob: Blob): Promise<string | null> => {
+    try {
+      const fileName = `voice-${user?.id}-${Date.now()}.webm`;
+      const filePath = `voice-messages/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('chat-files')
+        .upload(filePath, audioBlob);
+
+      if (uploadError) {
+        console.error('Error uploading voice message:', uploadError);
+        return null;
+      }
+
+      const { data } = supabase.storage
+        .from('chat-files')
+        .getPublicUrl(filePath);
+
+      return data.publicUrl;
+    } catch (error) {
+      console.error('Error uploading voice message:', error);
+      return null;
+    }
+  };
+
   const uploadImage = async (file: File): Promise<string | null> => {
     try {
       const fileExt = file.name.split('.').pop();
@@ -138,6 +166,85 @@ export const RealTimeChat = ({ contact, conversationId }: RealTimeChatProps) => 
     } catch (error) {
       console.error('Error uploading image:', error);
       return null;
+    }
+  };
+
+  const handleVoiceRecorded = async (audioBlob: Blob) => {
+    if (!user || !conversationId) return;
+
+    setLoading(true);
+    try {
+      const voiceUrl = await uploadVoiceMessage(audioBlob);
+      
+      if (!voiceUrl) {
+        toast({
+          title: "Upload failed",
+          description: "Failed to upload voice message. Please try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          content: voiceUrl,
+          sender_id: user.id,
+          conversation_id: conversationId,
+          message_type: 'voice'
+        });
+
+      if (error) {
+        console.error('Error sending voice message:', error);
+        toast({
+          title: "Failed to send voice message",
+          description: "Please try again.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error sending voice message:', error);
+      toast({
+        title: "Failed to send voice message",
+        description: "An unexpected error occurred.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLinkSend = async (url: string) => {
+    if (!user || !conversationId) return;
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          content: url,
+          sender_id: user.id,
+          conversation_id: conversationId,
+          message_type: 'link'
+        });
+
+      if (error) {
+        console.error('Error sending link:', error);
+        toast({
+          title: "Failed to send link",
+          description: "Please try again.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error sending link:', error);
+      toast({
+        title: "Failed to send link",
+        description: "An unexpected error occurred.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -273,7 +380,7 @@ export const RealTimeChat = ({ contact, conversationId }: RealTimeChatProps) => 
         minute: '2-digit' 
       }),
       sender: message.sender_id === user?.id ? 'me' : 'other',
-      type: message.message_type as 'text' | 'image' | 'gif' | 'file' | 'voice'
+      type: message.message_type as 'text' | 'image' | 'gif' | 'file' | 'voice' | 'link'
     };
   };
 
@@ -345,6 +452,22 @@ export const RealTimeChat = ({ contact, conversationId }: RealTimeChatProps) => 
             >
               <Smile className="h-4 w-4" />
             </Button>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-gray-400 hover:text-white"
+              onClick={() => setShowVoiceRecorder(true)}
+            >
+              <Mic className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-gray-400 hover:text-white"
+              onClick={() => setShowLinkUpload(true)}
+            >
+              <Link className="h-4 w-4" />
+            </Button>
             <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
               <Paperclip className="h-4 w-4" />
             </Button>
@@ -361,18 +484,13 @@ export const RealTimeChat = ({ contact, conversationId }: RealTimeChatProps) => 
             />
           </div>
           
-          <div className="flex space-x-1">
-            <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
-              <Mic className="h-4 w-4" />
-            </Button>
-            <Button 
-              onClick={handleSendMessage}
-              disabled={!newMessage.trim() || loading}
-              className="bg-nexo-blue-500 hover:bg-nexo-blue-600 text-white"
-            >
-              <Send className="h-4 w-4" />
-            </Button>
-          </div>
+          <Button 
+            onClick={handleSendMessage}
+            disabled={!newMessage.trim() || loading}
+            className="bg-nexo-blue-500 hover:bg-nexo-blue-600 text-white"
+          >
+            <Send className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
@@ -388,6 +506,20 @@ export const RealTimeChat = ({ contact, conversationId }: RealTimeChatProps) => 
         <GifPicker
           onGifSelect={handleGifSelect}
           onClose={() => setShowGifPicker(false)}
+        />
+      )}
+
+      {showVoiceRecorder && (
+        <VoiceRecorder
+          onVoiceRecorded={handleVoiceRecorded}
+          onClose={() => setShowVoiceRecorder(false)}
+        />
+      )}
+
+      {showLinkUpload && (
+        <LinkUpload
+          onLinkSend={handleLinkSend}
+          onClose={() => setShowLinkUpload(false)}
         />
       )}
     </div>
