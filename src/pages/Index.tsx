@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChatSidebar } from '@/components/ChatSidebar';
@@ -6,10 +5,11 @@ import { WelcomeScreen } from '@/components/WelcomeScreen';
 import { RealTimeChat } from '@/components/RealTimeChat';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { UserSearch } from '@/components/UserSearch';
+import { ProfileCustomization } from '@/components/ProfileCustomization';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { LogOut } from 'lucide-react';
+import { LogOut, Settings } from 'lucide-react';
 
 export interface Contact {
   id: string;
@@ -36,6 +36,7 @@ const Index = () => {
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [darkMode, setDarkMode] = useState(true);
+  const [showProfileCustomization, setShowProfileCustomization] = useState(false);
   const { user, loading, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -122,6 +123,14 @@ const Index = () => {
             <Button
               variant="ghost"
               size="sm"
+              onClick={() => setShowProfileCustomization(true)}
+              className="text-gray-400 hover:text-white"
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={handleSignOut}
               className="text-gray-400 hover:text-white"
             >
@@ -152,6 +161,11 @@ const Index = () => {
           <WelcomeScreen />
         )}
       </div>
+
+      {/* Profile Customization Modal */}
+      {showProfileCustomization && (
+        <ProfileCustomization onClose={() => setShowProfileCustomization(false)} />
+      )}
     </div>
   );
 };

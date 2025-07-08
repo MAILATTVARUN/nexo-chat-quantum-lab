@@ -1,7 +1,9 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { Send, Paperclip, Mic, Image, MoreVertical, Phone, Video, Smile } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { MessageBubble } from '@/components/MessageBubble';
@@ -282,9 +284,12 @@ export const RealTimeChat = ({ contact, conversationId }: RealTimeChatProps) => 
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="relative">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-nexo-blue-400 to-nexo-blue-600 flex items-center justify-center text-lg">
-                {contact.name?.charAt(0)?.toUpperCase() || contact.email?.charAt(0)?.toUpperCase()}
-              </div>
+              <Avatar className="w-10 h-10">
+                <AvatarImage src={contact.avatar_url} />
+                <AvatarFallback className="bg-gradient-to-br from-nexo-blue-400 to-nexo-blue-600 text-white">
+                  {contact.name?.charAt(0)?.toUpperCase() || contact.email?.charAt(0)?.toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
               {contact.online_status && (
                 <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-gray-800"></div>
               )}
