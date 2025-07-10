@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Play, Pause, ExternalLink } from 'lucide-react';
+import { Play, Pause } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Message } from '@/pages/Index';
 
@@ -23,32 +23,30 @@ export const MessageBubble = ({ message }: MessageBubbleProps) => {
         audio.onpause = () => {
           setIsPlaying(false);
         };
+        audio.onerror = (e) => {
+          console.error('Audio playback error:', e);
+          setIsPlaying(false);
+        };
         setAudioElement(audio);
-        audio.play();
-        setIsPlaying(true);
+        audio.play().then(() => {
+          setIsPlaying(true);
+        }).catch((error) => {
+          console.error('Error playing audio:', error);
+          setIsPlaying(false);
+        });
       } else {
         if (isPlaying) {
           audioElement.pause();
           setIsPlaying(false);
         } else {
-          audioElement.play();
-          setIsPlaying(true);
+          audioElement.play().then(() => {
+            setIsPlaying(true);
+          }).catch((error) => {
+            console.error('Error playing audio:', error);
+            setIsPlaying(false);
+          });
         }
       }
-    }
-  };
-
-  const handleLinkClick = () => {
-    if (message.type === 'link') {
-      window.open(message.content, '_blank');
-    }
-  };
-
-  const getDomainFromUrl = (url: string) => {
-    try {
-      return new URL(url).hostname;
-    } catch {
-      return url;
     }
   };
 
@@ -106,23 +104,6 @@ export const MessageBubble = ({ message }: MessageBubbleProps) => {
                   />
                 ))}
               </div>
-            </div>
-          </div>
-        );
-      case 'link':
-        return (
-          <div
-            onClick={handleLinkClick}
-            className="flex items-center space-x-2 p-3 border border-gray-600 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors"
-          >
-            <ExternalLink className="h-4 w-4 text-blue-400 flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-blue-400 font-medium truncate">
-                {getDomainFromUrl(message.content)}
-              </p>
-              <p className="text-xs text-gray-400 truncate">
-                {message.content}
-              </p>
             </div>
           </div>
         );

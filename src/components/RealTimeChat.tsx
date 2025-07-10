@@ -1,5 +1,6 @@
+
 import { useState, useEffect, useRef } from 'react';
-import { Send, Paperclip, Mic, Image, MoreVertical, Phone, Video, Smile, Link } from 'lucide-react';
+import { Send, Paperclip, Mic, Image, MoreVertical, Phone, Video, Smile } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -10,7 +11,7 @@ import { TypingIndicator } from '@/components/TypingIndicator';
 import { ImageUpload } from '@/components/ImageUpload';
 import { GifPicker } from '@/components/GifPicker';
 import { VoiceRecorder } from '@/components/VoiceRecorder';
-import { LinkUpload } from '@/components/LinkUpload';
+import { UserOptionsMenu } from '@/components/UserOptionsMenu';
 import { useToast } from '@/hooks/use-toast';
 
 interface Profile {
@@ -35,7 +36,7 @@ interface Message {
   content: string;
   timestamp: string;
   sender: 'me' | 'other';
-  type: 'text' | 'image' | 'file' | 'voice' | 'gif' | 'link';
+  type: 'text' | 'image' | 'file' | 'voice' | 'gif';
   fileUrl?: string;
   fileName?: string;
 }
@@ -53,7 +54,7 @@ export const RealTimeChat = ({ contact, conversationId }: RealTimeChatProps) => 
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [showGifPicker, setShowGifPicker] = useState(false);
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
-  const [showLinkUpload, setShowLinkUpload] = useState(false);
+  const [showUserOptions, setShowUserOptions] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
@@ -214,40 +215,6 @@ export const RealTimeChat = ({ contact, conversationId }: RealTimeChatProps) => 
     }
   };
 
-  const handleLinkSend = async (url: string) => {
-    if (!user || !conversationId) return;
-
-    setLoading(true);
-    try {
-      const { error } = await supabase
-        .from('messages')
-        .insert({
-          content: url,
-          sender_id: user.id,
-          conversation_id: conversationId,
-          message_type: 'link'
-        });
-
-      if (error) {
-        console.error('Error sending link:', error);
-        toast({
-          title: "Failed to send link",
-          description: "Please try again.",
-          variant: "destructive"
-        });
-      }
-    } catch (error) {
-      console.error('Error sending link:', error);
-      toast({
-        title: "Failed to send link",
-        description: "An unexpected error occurred.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleImageSelect = async (file: File) => {
     if (!user || !conversationId) return;
 
@@ -380,7 +347,7 @@ export const RealTimeChat = ({ contact, conversationId }: RealTimeChatProps) => 
         minute: '2-digit' 
       }),
       sender: message.sender_id === user?.id ? 'me' : 'other',
-      type: message.message_type as 'text' | 'image' | 'gif' | 'file' | 'voice' | 'link'
+      type: message.message_type as 'text' | 'image' | 'gif' | 'file' | 'voice'
     };
   };
 
@@ -416,7 +383,12 @@ export const RealTimeChat = ({ contact, conversationId }: RealTimeChatProps) => 
             <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
               <Video className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-gray-400 hover:text-white"
+              onClick={() => setShowUserOptions(true)}
+            >
               <MoreVertical className="h-4 w-4" />
             </Button>
           </div>
@@ -459,14 +431,6 @@ export const RealTimeChat = ({ contact, conversationId }: RealTimeChatProps) => 
               onClick={() => setShowVoiceRecorder(true)}
             >
               <Mic className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="text-gray-400 hover:text-white"
-              onClick={() => setShowLinkUpload(true)}
-            >
-              <Link className="h-4 w-4" />
             </Button>
             <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
               <Paperclip className="h-4 w-4" />
@@ -516,10 +480,10 @@ export const RealTimeChat = ({ contact, conversationId }: RealTimeChatProps) => 
         />
       )}
 
-      {showLinkUpload && (
-        <LinkUpload
-          onLinkSend={handleLinkSend}
-          onClose={() => setShowLinkUpload(false)}
+      {showUserOptions && (
+        <UserOptionsMenu
+          contact={contact}
+          onClose={() => setShowUserOptions(false)}
         />
       )}
     </div>
